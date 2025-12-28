@@ -8,7 +8,7 @@
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         h1 { color: #333; }
         .container { display: flex; gap: 20px; width: 100%; max-width: 1200px; }
-        .controls { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 300px; display: flex; flex-direction: column; gap: 15px; }
+        .controls { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 300px; min-width: 150px; display: flex; flex-direction: column; gap: 15px; }
         .canvas-container { flex-grow: 1; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 400px; }
         #resolution-display { margin-top: 10px; color: #555; font-size: 0.9em; height: 20px; }
         canvas { max-width: 100%; height: auto; border: 1px dashed #ccc; cursor: crosshair; }
@@ -37,9 +37,25 @@
             <div class="control-group">
                 <label>2. 执行操作</label>
                 <button id="btn-trim" disabled>裁剪透明区域</button>
-                <button id="btn-flip" disabled>左右翻转</button>
+                <div style="display: flex; flex-direction: row; gap: 5px;">
+                    <button id="btn-flip" disabled>左右翻转</button>
+                    <button id="btn-flip-vertical" disabled>上下翻转</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>图像调整</label>
+                <label for="saturationFactor" style="font-weight: normal; font-size: 0.8em;">饱和度 (0-2)</label>
+                <input type="number" id="saturationFactor" placeholder="1.0" value="1.0" min="0" max="2" step="0.1">
+                <button id="btn-saturation" disabled>调整饱和度</button>
             </div>
             
+            <div class="control-group">
+                <label for="rotateAngle">任意角度旋转 (度)</label>
+                <input type="number" id="rotateAngle" placeholder="例如: 90, -45" value="0">
+                <button id="btn-rotate" disabled>确认旋转</button>
+            </div>
+
             <div class="control-group">
                 <label for="resizeWidth">按宽度等比缩放</label>
                 <input type="number" id="resizeWidth" placeholder="输入新的宽度 (px)" min="1">
@@ -74,7 +90,7 @@
         const resolutionDisplay = document.getElementById('resolution-display');
         
         const allButtons = document.querySelectorAll('button');
-        const actionButtons = ['btn-trim', 'btn-flip', 'btn-resize', 'btn-crop', 'btn-download'];
+        const actionButtons = ['btn-trim', 'btn-flip', 'btn-flip-vertical', 'btn-rotate', 'btn-saturation', 'btn-resize', 'btn-crop', 'btn-download'];
 
         let selection = { x: 0, y: 0, width: 0, height: 0, isSelecting: false };
         let originalImage = null;
@@ -96,7 +112,26 @@
 
         document.getElementById('btn-trim').addEventListener('click', () => callApi('/api/trim'));
         document.getElementById('btn-flip').addEventListener('click', () => callApi('/api/flip'));
+        document.getElementById('btn-flip-vertical').addEventListener('click', () => callApi('/api/flip_vertical'));
+
+        document.getElementById('btn-saturation').addEventListener('click', () => {
+            const factor = document.getElementById('saturationFactor').value;
+            if (factor === null || factor === '' || parseFloat(factor) < 0) {
+                alert('请输入有效的饱和度因子 (大于等于0)。');
+                return;
+            }
+            callApi('/api/adjust_saturation', { factor: parseFloat(factor) });
+        });
         
+        document.getElementById('btn-rotate').addEventListener('click', () => {
+            const angle = document.getElementById('rotateAngle').value;
+            if (angle === null || angle === '') {
+                alert('请输入有效的旋转角度。');
+                return;
+            }
+            callApi('/api/rotate', { angle: parseFloat(angle) });
+        });
+
         document.getElementById('btn-resize').addEventListener('click', () => {
             const width = document.getElementById('resizeWidth').value;
             if (!width || width <= 0) {

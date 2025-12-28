@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, request, jsonify, send_from_directory
-from PIL import Image
+from PIL import Image, ImageEnhance
 import base64
 from io import BytesIO
 import uuid
@@ -91,6 +91,17 @@ def flip_image():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/flip_vertical', methods=['POST'])
+def flip_image_vertical():
+    data = request.json
+    try:
+        image = decode_image(data['imageData'])
+        flipped_image = image.transpose(Image.FLIP_TOP_BOTTOM)
+        result_url = encode_image(flipped_image)
+        return jsonify({'imageUrl': result_url})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/crop', methods=['POST'])
 def crop_image():
     data = request.json
@@ -105,6 +116,38 @@ def crop_image():
         cropped_image = image.crop((x, y, x + width, y + height))
         result_url = encode_image(cropped_image)
         
+        return jsonify({'imageUrl': result_url})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/rotate', methods=['POST'])
+def rotate_image_route():
+    data = request.json
+    try:
+        image = decode_image(data['imageData'])
+        angle = float(data.get('angle', 0))
+        
+        # Rotate the image. `expand=True` makes sure the output image is large enough to hold the entire rotated image.
+        # `fillcolor=(0,0,0,0)` makes the background transparent.
+        rotated_image = image.rotate(angle, expand=True, fillcolor=(0,0,0,0))
+        result_url = encode_image(rotated_image)
+
+        return jsonify({'imageUrl': result_url})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/adjust_saturation', methods=['POST'])
+def adjust_saturation_route():
+    data = request.json
+    try:
+        image = decode_image(data['imageData'])
+        factor = float(data.get('factor', 1.0))
+        
+        enhancer = ImageEnhance.Color(image)
+        enhanced_image = enhancer.enhance(factor)
+        
+        result_url = encode_image(enhanced_image)
+
         return jsonify({'imageUrl': result_url})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
