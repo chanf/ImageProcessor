@@ -107,19 +107,36 @@
         });
 
         document.getElementById('btn-crop').addEventListener('click', () => {
-            if (selection.width <= 0 || selection.height <= 0) {
+            if (selection.width === 0 || selection.height === 0) {
                 alert('请先在图片上拖动鼠标选择一个裁剪区域。');
                 return;
             }
-            // Ensure selection is within image bounds
-            const scale = originalImage.width / canvas.width;
+            
+            const x1 = selection.x;
+            const y1 = selection.y;
+            const x2 = selection.x + selection.width;
+            const y2 = selection.y + selection.height;
+
+            const left = Math.min(x1, x2);
+            const top = Math.min(y1, y2);
+            const right = Math.max(x1, x2);
+            const bottom = Math.max(y1, y2);
+
             const cropParams = {
-                x: Math.round(selection.x * scale),
-                y: Math.round(selection.y * scale),
-                width: Math.round(selection.width * scale),
-                height: Math.round(selection.height * scale)
+                x: Math.round(left),
+                y: Math.round(top),
+                width: Math.round(right - left),
+                height: Math.round(bottom - top)
             };
+
+            if (cropParams.width === 0 || cropParams.height === 0) {
+                alert('裁剪区域的宽度或高度不能为0。');
+                return;
+            }
+
             callApi('/api/crop', cropParams);
+            // Reset selection to prevent red box from reappearing
+            selection = { x: 0, y: 0, width: 0, height: 0, isSelecting: false };
         });
 
 
@@ -127,15 +144,24 @@
 
         canvas.addEventListener('mousedown', e => {
             selection.isSelecting = true;
-            selection.x = e.offsetX;
-            selection.y = e.offsetY;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            selection.x = e.offsetX * scaleX;
+            selection.y = e.offsetY * scaleY;
         });
 
         canvas.addEventListener('mousemove', e => {
             if (selection.isSelecting) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const currentX = e.offsetX * scaleX;
+                const currentY = e.offsetY * scaleY;
+
                 drawImageOnCanvas(originalImage); // Redraw original to clear previous rect
-                selection.width = e.offsetX - selection.x;
-                selection.height = e.offsetY - selection.y;
+                selection.width = currentX - selection.x;
+                selection.height = currentY - selection.y;
                 ctx.strokeStyle = 'red';
                 ctx.lineWidth = 2;
                 ctx.strokeRect(selection.x, selection.y, selection.width, selection.height);
@@ -177,12 +203,16 @@
             enableButtons(false);
 
             try {
+                if (!originalImage) {
+                    throw new Error("No image loaded.");
+                }
+
                 const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         ...body,
-                        imageData: canvas.toDataURL('image/png')
+                        imageData: originalImage.src // Use the clean originalImage source
                     })
                 });
 
