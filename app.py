@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, request, jsonify, send_from_directory
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageEnhance, ImageOps, ImageFilter
 import base64
 from io import BytesIO
 import uuid
@@ -148,6 +148,158 @@ def adjust_saturation_route():
         
         result_url = encode_image(enhanced_image)
 
+        return jsonify({'imageUrl': result_url})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/adjust/brightness', methods=['POST'])
+def adjust_brightness_route():
+    data = request.json
+    try:
+        image = decode_image(data['imageData'])
+        factor = float(data.get('factor', 1.0))
+        enhancer = ImageEnhance.Brightness(image)
+        enhanced_image = enhancer.enhance(factor)
+        result_url = encode_image(enhanced_image)
+        return jsonify({'imageUrl': result_url})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/adjust/contrast', methods=['POST'])
+def adjust_contrast_route():
+    data = request.json
+    try:
+        image = decode_image(data['imageData'])
+        factor = float(data.get('factor', 1.0))
+        enhancer = ImageEnhance.Contrast(image)
+        enhanced_image = enhancer.enhance(factor)
+        result_url = encode_image(enhanced_image)
+        return jsonify({'imageUrl': result_url})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/adjust/sharpness', methods=['POST'])
+def adjust_sharpness_route():
+    data = request.json
+    try:
+        image = decode_image(data['imageData'])
+        factor = float(data.get('factor', 1.0))
+        enhancer = ImageEnhance.Sharpness(image)
+        enhanced_image = enhancer.enhance(factor)
+        result_url = encode_image(enhanced_image)
+        return jsonify({'imageUrl': result_url})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# --- Filters ---
+def apply_sepia_filter(image):
+    """
+    Apply a sepia filter to the image using a color matrix conversion for efficiency.
+    """
+    if image.mode != 'RGBA':
+        image = image.convert('RGBA')
+    
+    # Preserve the alpha channel
+    alpha = image.split()[3]
+
+    # Convert to RGB before applying the matrix
+    rgb_image = image.convert('RGB')
+
+    # Apply the sepia matrix to the RGB channels
+    sepia_matrix = [
+        0.393, 0.769, 0.189, 0,
+        0.349, 0.686, 0.168, 0,
+        0.272, 0.534, 0.131, 0
+    ]
+    sepia_rgb_image = rgb_image.convert("RGB", sepia_matrix)
+    
+    # Re-add the alpha channel
+    sepia_rgb_image.putalpha(alpha)
+    
+    return sepia_rgb_image
+
+@app.route('/api/filter/grayscale', methods=['POST'])
+def filter_grayscale_route():
+    data = request.json
+    try:
+        image = decode_image(data['imageData'])
+        grayscale_image = image.convert('L')
+        result_url = encode_image(grayscale_image)
+        return jsonify({'imageUrl': result_url})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/filter/sepia', methods=['POST'])
+def filter_sepia_route():
+    data = request.json
+    try:
+        image = decode_image(data['imageData'])
+        sepia_image = apply_sepia_filter(image)
+        result_url = encode_image(sepia_image)
+        return jsonify({'imageUrl': result_url})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/filter/invert', methods=['POST'])
+def filter_invert_route():
+    data = request.json
+    try:
+        image = decode_image(data['imageData'])
+        # Invert needs an RGB image, not RGBA
+        if image.mode == 'RGBA':
+            r,g,b,a = image.split()
+            rgb_image = Image.merge('RGB', (r,g,b))
+            inverted_image = ImageOps.invert(rgb_image)
+            r,g,b = inverted_image.split()
+            final_image = Image.merge('RGBA', (r,g,b,a))
+        else:
+            final_image = ImageOps.invert(image)
+
+        result_url = encode_image(final_image)
+        return jsonify({'imageUrl': result_url})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/filter/sharpen', methods=['POST'])
+def filter_sharpen_route():
+    data = request.json
+    try:
+        image = decode_image(data['imageData'])
+        sharpened_image = image.filter(ImageFilter.SHARPEN)
+        result_url = encode_image(sharpened_image)
+        return jsonify({'imageUrl': result_url})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/filter/blur', methods=['POST'])
+def filter_blur_route():
+    data = request.json
+    try:
+        image = decode_image(data['imageData'])
+        blurred_image = image.filter(ImageFilter.BLUR)
+        result_url = encode_image(blurred_image)
+        return jsonify({'imageUrl': result_url})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/filter/contour', methods=['POST'])
+def filter_contour_route():
+    data = request.json
+    try:
+        image = decode_image(data['imageData'])
+        contoured_image = image.filter(ImageFilter.CONTOUR)
+        result_url = encode_image(contoured_image)
+        return jsonify({'imageUrl': result_url})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/filter/edge_enhance', methods=['POST'])
+def filter_edge_enhance_route():
+    data = request.json
+    try:
+        image = decode_image(data['imageData'])
+        edge_enhanced_image = image.filter(ImageFilter.EDGE_ENHANCE)
+        result_url = encode_image(edge_enhanced_image)
         return jsonify({'imageUrl': result_url})
     except Exception as e:
         return jsonify({'error': str(e)}), 500

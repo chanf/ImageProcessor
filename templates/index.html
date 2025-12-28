@@ -8,7 +8,7 @@
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         h1 { color: #333; }
         .container { display: flex; gap: 20px; width: 100%; max-width: 1200px; }
-        .controls { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 300px; min-width: 150px; display: flex; flex-direction: column; gap: 15px; }
+        .controls { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 300px; min-width: 150px; display: flex; flex-direction: column; /* removed gap */ }
         .canvas-container { flex-grow: 1; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 400px; }
         #resolution-display { margin-top: 10px; color: #555; font-size: 0.9em; height: 20px; }
         canvas { max-width: 100%; height: auto; border: 1px dashed #ccc; cursor: crosshair; }
@@ -21,6 +21,52 @@
         .control-group { display: flex; flex-direction: column; gap: 5px; }
         label { font-weight: bold; font-size: 0.9em; color: #555; }
         #loader { display: none; text-align: center; padding: 20px; }
+
+        /* Tab Styles */
+        .tab-buttons {
+            display: flex;
+            flex-direction: row;
+            border-bottom: 1px solid #ccc;
+        }
+        .tab-button {
+            flex-grow: 1;
+            padding: 10px;
+            background-color: #e0e0e0; /* Slightly darker gray for inactive tabs */
+            color: #333; /* Darker text for readability */
+            font-weight: bold; /* Make text stand out */
+            border: 1px solid #ccc;
+            border-bottom: none;
+            cursor: pointer;
+            border-radius: 4px 4px 0 0;
+            width: auto; /* Override default button width */
+            margin-bottom: -1px; /* Overlap with container border */
+            transition: background-color 0.3s, color 0.3s; /* Smooth transitions */
+        }
+        .tab-button:hover {
+            background-color: #d0d0d0; /* Hover effect */
+        }
+        .tab-button.active {
+            background-color: #fff;
+            color: #007bff; /* Primary blue for active tab */
+            border-bottom: 1px solid #fff;
+        }
+        .tab-content {
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            padding-top: 15px;
+        }
+        .tab-content.active {
+            display: flex;
+        }
+        .button-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .button-grid > button {
+            flex: 1 1 calc(50% - 5px); /* Two buttons per row, accounting for gap */
+        }
     </style>
 </head>
 <body>
@@ -33,38 +79,78 @@
                 <label for="imageLoader">1. 上传图片</label>
                 <input type="file" id="imageLoader" name="imageLoader" accept="image/*"/>
             </div>
+            <button id="btn-undo" disabled>撤销</button>
 
-            <div class="control-group">
-                <label>2. 执行操作</label>
-                <button id="btn-trim" disabled>裁剪透明区域</button>
-                <div style="display: flex; flex-direction: row; gap: 5px;">
-                    <button id="btn-flip" disabled>左右翻转</button>
-                    <button id="btn-flip-vertical" disabled>上下翻转</button>
+            <!-- Tab buttons -->
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="tab-basic">基本操作</button>
+                <button class="tab-button" data-tab="tab-adjust">图像调整</button>
+                <button class="tab-button" data-tab="tab-filters">滤镜特效</button>
+            </div>
+
+            <!-- Tab content -->
+            <div class="tab-content-container">
+                <div id="tab-basic" class="tab-content active">
+                    <div class="control-group">
+                        <label>变换</label>
+                        <button id="btn-trim" disabled>裁剪透明区域</button>
+                        <div style="display: flex; flex-direction: row; gap: 5px;">
+                            <button id="btn-flip" disabled>左右翻转</button>
+                            <button id="btn-flip-vertical" disabled>上下翻转</button>
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label for="rotateAngle">任意角度旋转 (度)</label>
+                        <input type="number" id="rotateAngle" placeholder="例如: 90, -45" value="0">
+                        <button id="btn-rotate" disabled>确认旋转</button>
+                    </div>
+                    <div class="control-group">
+                        <label for="resizeWidth">按宽度等比缩放</label>
+                        <input type="number" id="resizeWidth" placeholder="输入新的宽度 (px)" min="1">
+                        <button id="btn-resize" disabled>确认缩放</button>
+                    </div>
+                    <div class="control-group">
+                        <label>区域裁剪 (在图上拖动选择)</label>
+                        <button id="btn-crop" disabled>裁剪选中区域</button>
+                    </div>
                 </div>
-            </div>
 
-            <div class="control-group">
-                <label>图像调整</label>
-                <label for="saturationFactor" style="font-weight: normal; font-size: 0.8em;">饱和度 (0-2)</label>
-                <input type="number" id="saturationFactor" placeholder="1.0" value="1.0" min="0" max="2" step="0.1">
-                <button id="btn-saturation" disabled>调整饱和度</button>
-            </div>
-            
-            <div class="control-group">
-                <label for="rotateAngle">任意角度旋转 (度)</label>
-                <input type="number" id="rotateAngle" placeholder="例如: 90, -45" value="0">
-                <button id="btn-rotate" disabled>确认旋转</button>
-            </div>
+                <div id="tab-adjust" class="tab-content">
+                    <div class="control-group">
+                        <label for="saturationFactor" style="font-weight: normal; font-size: 0.8em;">饱和度 (0-2)</label>
+                        <input type="number" id="saturationFactor" placeholder="1.0" value="1.0" min="0" max="2" step="0.1">
+                        <button id="btn-saturation" disabled>调整饱和度</button>
+                    </div>
+                    <div class="control-group">
+                        <label for="brightnessFactor" style="font-weight: normal; font-size: 0.8em;">亮度 (0-2)</label>
+                        <input type="number" id="brightnessFactor" placeholder="1.0" value="1.0" min="0" max="2" step="0.1">
+                        <button id="btn-brightness" disabled>调整亮度</button>
+                    </div>
+                    <div class="control-group">
+                        <label for="contrastFactor" style="font-weight: normal; font-size: 0.8em;">对比度 (0-2)</label>
+                        <input type="number" id="contrastFactor" placeholder="1.0" value="1.0" min="0" max="2" step="0.1">
+                        <button id="btn-contrast" disabled>调整对比度</button>
+                    </div>
+                    <div class="control-group">
+                        <label for="sharpnessFactor" style="font-weight: normal; font-size: 0.8em;">清晰度 (0-2)</label>
+                        <input type="number" id="sharpnessFactor" placeholder="1.0" value="1.0" min="0" max="2" step="0.1">
+                        <button id="btn-sharpness" disabled>调整清晰度</button>
+                    </div>
+                </div>
 
-            <div class="control-group">
-                <label for="resizeWidth">按宽度等比缩放</label>
-                <input type="number" id="resizeWidth" placeholder="输入新的宽度 (px)" min="1">
-                <button id="btn-resize" disabled>确认缩放</button>
-            </div>
-
-            <div class="control-group">
-                <label>区域裁剪 (在图上拖动选择)</label>
-                <button id="btn-crop" disabled>裁剪选中区域</button>
+                <div id="tab-filters" class="tab-content">
+                    <div class="control-group">
+                        <div class="button-grid">
+                            <button id="btn-filter-grayscale" disabled>黑白</button>
+                            <button id="btn-filter-sepia" disabled>复古</button>
+                            <button id="btn-filter-invert" disabled>反色</button>
+                            <button id="btn-filter-sharpen" disabled>锐化</button>
+                            <button id="btn-filter-blur" disabled>模糊</button>
+                            <button id="btn-filter-contour" disabled>轮廓</button>
+                            <button id="btn-filter-edge-enhance" disabled>边缘增强</button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="control-group">
@@ -90,10 +176,17 @@
         const resolutionDisplay = document.getElementById('resolution-display');
         
         const allButtons = document.querySelectorAll('button');
-        const actionButtons = ['btn-trim', 'btn-flip', 'btn-flip-vertical', 'btn-rotate', 'btn-saturation', 'btn-resize', 'btn-crop', 'btn-download'];
+        const actionButtons = ['btn-trim', 'btn-flip', 'btn-flip-vertical', 'btn-rotate', 'btn-saturation', 'btn-brightness', 'btn-contrast', 'btn-sharpness', 'btn-filter-grayscale', 'btn-filter-sepia', 'btn-filter-invert', 'btn-filter-sharpen', 'btn-filter-blur', 'btn-filter-contour', 'btn-filter-edge-enhance', 'btn-resize', 'btn-crop', 'btn-download', 'btn-undo'];
 
         let selection = { x: 0, y: 0, width: 0, height: 0, isSelecting: false };
         let originalImage = null;
+        let historyStack = [];
+        const undoButton = document.getElementById('btn-undo');
+
+        function updateHistory(newImageSrc) {
+            historyStack.push(newImageSrc);
+            undoButton.disabled = historyStack.length <= 1;
+        }
 
         // --- Event Listeners ---
 
@@ -102,6 +195,8 @@
             reader.onload = event => {
                 originalImage = new Image();
                 originalImage.onload = () => {
+                    historyStack = []; // Clear history on new image upload
+                    updateHistory(originalImage.src);
                     drawImageOnCanvas(originalImage);
                     enableButtons(true);
                 }
@@ -110,9 +205,33 @@
             reader.readAsDataURL(e.target.files[0]);
         });
 
+        undoButton.addEventListener('click', () => {
+            if (historyStack.length > 1) {
+                showLoader(true); // Show loader during undo operation
+                historyStack.pop(); // Remove current state
+                const prevStateSrc = historyStack[historyStack.length - 1];
+                
+                originalImage = new Image();
+                originalImage.onload = () => {
+                    drawImageOnCanvas(originalImage);
+                    undoButton.disabled = historyStack.length <= 1;
+                    showLoader(false); // Hide loader after undo
+                };
+                originalImage.src = prevStateSrc;
+            }
+        });
+
         document.getElementById('btn-trim').addEventListener('click', () => callApi('/api/trim'));
         document.getElementById('btn-flip').addEventListener('click', () => callApi('/api/flip'));
         document.getElementById('btn-flip-vertical').addEventListener('click', () => callApi('/api/flip_vertical'));
+
+        document.getElementById('btn-filter-grayscale').addEventListener('click', () => callApi('/api/filter/grayscale'));
+        document.getElementById('btn-filter-sepia').addEventListener('click', () => callApi('/api/filter/sepia'));
+        document.getElementById('btn-filter-invert').addEventListener('click', () => callApi('/api/filter/invert'));
+        document.getElementById('btn-filter-sharpen').addEventListener('click', () => callApi('/api/filter/sharpen'));
+        document.getElementById('btn-filter-blur').addEventListener('click', () => callApi('/api/filter/blur'));
+        document.getElementById('btn-filter-contour').addEventListener('click', () => callApi('/api/filter/contour'));
+        document.getElementById('btn-filter-edge-enhance').addEventListener('click', () => callApi('/api/filter/edge_enhance'));
 
         document.getElementById('btn-saturation').addEventListener('click', () => {
             const factor = document.getElementById('saturationFactor').value;
@@ -121,6 +240,33 @@
                 return;
             }
             callApi('/api/adjust_saturation', { factor: parseFloat(factor) });
+        });
+
+        document.getElementById('btn-brightness').addEventListener('click', () => {
+            const factor = document.getElementById('brightnessFactor').value;
+            if (factor === null || factor === '' || parseFloat(factor) < 0) {
+                alert('请输入有效的亮度因子 (大于等于0)。');
+                return;
+            }
+            callApi('/api/adjust/brightness', { factor: parseFloat(factor) });
+        });
+
+        document.getElementById('btn-contrast').addEventListener('click', () => {
+            const factor = document.getElementById('contrastFactor').value;
+            if (factor === null || factor === '' || parseFloat(factor) < 0) {
+                alert('请输入有效的对比度因子 (大于等于0)。');
+                return;
+            }
+            callApi('/api/adjust/contrast', { factor: parseFloat(factor) });
+        });
+
+        document.getElementById('btn-sharpness').addEventListener('click', () => {
+            const factor = document.getElementById('sharpnessFactor').value;
+            if (factor === null || factor === '' || parseFloat(factor) < 0) {
+                alert('请输入有效的清晰度因子 (大于等于0)。');
+                return;
+            }
+            callApi('/api/adjust/sharpness', { factor: parseFloat(factor) });
         });
         
         document.getElementById('btn-rotate').addEventListener('click', () => {
@@ -263,6 +409,7 @@
                     drawImageOnCanvas(originalImage);
                     showLoader(false);
                     enableButtons(true);
+                    updateHistory(originalImage.src); // Add new state to history after API call
                 }
                 originalImage.src = result.imageUrl;
 
@@ -275,6 +422,22 @@
 
         // Initially disable all action buttons
         enableButtons(false);
+
+        // --- Tab Switching Logic ---
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Deactivate all tabs
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabContents.forEach(content => content.classList.remove('active'));
+
+                // Activate the clicked tab
+                button.classList.add('active');
+                document.getElementById(button.dataset.tab).classList.add('active');
+            });
+        });
 
     </script>
 </body>
