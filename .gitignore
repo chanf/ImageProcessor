@@ -1,10 +1,2 @@
-# Virtual Environment
+.DS_Store
 venv/
-
-# Uploads and Processed files
-uploads/
-processed/
-
-# Python cache
-__pycache__/
-*.pyc
