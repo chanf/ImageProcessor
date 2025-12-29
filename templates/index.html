@@ -3,15 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>简易图片处理工具</title>
+    <title>图片处理与拼图工具</title>
+    <script src="https://unpkg.com/konva@9.3.13/konva.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        h1 { color: #333; }
-        .container { display: flex; gap: 20px; width: 100%; max-width: 1200px; }
-        .controls { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 300px; min-width: 280px; display: flex; flex-direction: column; }
-        .canvas-container { flex-grow: 1; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 400px; min-width: 0; }
-        #resolution-display { margin-top: 10px; color: #555; font-size: 0.9em; height: 20px; }
-        canvas { max-width: 100%; height: auto; border: 1px dashed #ccc; cursor: crosshair; }
+        h1 { color: #333; text-align: center; }
+        .main-container { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 1200px; }
+        .main-tabs { display: flex; border-bottom: 2px solid #007bff; }
+        .main-tab-btn { flex: 1; padding: 12px; font-size: 1.1em; font-weight: bold; background-color: #e9ecef; border: 1px solid #dee2e6; border-bottom: none; cursor: pointer; transition: background-color 0.2s; }
+        .main-tab-btn.active { background-color: #fff; border-bottom: 2px solid #fff; margin-bottom: -2px; color: #007bff; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        .editor-container { display: flex; gap: 20px; width: 100%; margin-top: 10px; }
+        .controls { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); width: 300px; min-width: 280px; display: flex; flex-direction: column; flex-shrink: 0; }
+        .canvas-area { flex-grow: 1; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 400px; min-width: 0; }
+        #resolution-display, #jigsaw-resolution-display { margin-top: 10px; color: #555; font-size: 0.9em; height: 20px; }
+        #imageCanvas, .konvajs-content { max-width: 100%; height: auto; border: 1px dashed #ccc; cursor: crosshair; }
         button, input[type="file"], input[type="number"] { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         button { background-color: #007bff; color: white; border: none; cursor: pointer; transition: background-color 0.3s; }
         button:hover { background-color: #0056b3; }
@@ -20,337 +27,185 @@
         .download-btn:hover { background-color: #218838; }
         .control-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;}
         label { font-weight: bold; font-size: 0.9em; color: #555; }
-        #loader { display: none; text-align: center; padding: 20px; }
-
-        /* Tab Styles */
-        .tab-buttons { display: flex; flex-wrap: wrap; border-bottom: 1px solid #ccc; }
-        .tab-button { flex-grow: 1; padding: 10px; background-color: #e0e0e0; color: #333; font-weight: bold; border: 1px solid #ccc; border-bottom: none; cursor: pointer; border-radius: 4px 4px 0 0; width: auto; margin-bottom: -1px; transition: background-color 0.3s, color 0.3s; font-size: 0.8em; text-align: center; }
-        .tab-button:hover { background-color: #d0d0d0; }
-        .tab-button.active { background-color: #fff; color: #007bff; border-bottom: 1px solid #fff; }
-        .tab-content { display: none; flex-direction: column; gap: 15px; padding-top: 15px; }
-        .tab-content.active { display: flex; }
-        .button-grid { display: flex; flex-wrap: wrap; gap: 5px; }
-        .button-grid > button { flex: 1 1 calc(50% - 5px); }
-
-        /* Pro Mode & Preset Styles */
-        .preset-grid { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px;}
+        #loader, #jigsaw-loader { display: none; text-align: center; padding: 20px; }
+        .sub-tab-buttons { display: flex; flex-wrap: wrap; border-bottom: 1px solid #ccc; }
+        .sub-tab-btn { flex-grow: 1; padding: 10px; background-color: #e0e0e0; color: #333; font-weight: bold; border: 1px solid #ccc; border-bottom: none; cursor: pointer; border-radius: 4px 4px 0 0; margin-bottom: -1px; transition: background-color 0.3s; font-size: 0.8em; text-align: center; }
+        .sub-tab-btn:hover { background-color: #d0d0d0; }
+        .sub-tab-btn.active { background-color: #fff; color: #007bff; border-bottom: 1px solid #fff; }
+        .sub-tab-content { display: none; flex-direction: column; gap: 15px; padding-top: 15px; }
+        .sub-tab-content.active { display: flex; }
+        .button-grid, .preset-grid { display: flex; flex-wrap: wrap; gap: 5px; }
+        .preset-grid { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px;}
         .preset-btn { background-color: #f0f2f5; color: #333; border: 1px solid #ddd; font-size: 0.8em; padding: 5px 8px; flex-grow: 1; }
-        .preset-btn:hover { background-color: #e0e0e0; border-color: #ccc; }
         .pro-control { display: flex; flex-direction: column; gap: 5px; margin-bottom: 5px;}
         .pro-control .label-container { display: flex; justify-content: space-between; align-items: center; }
         .pro-control .slider-value { font-size: 0.8em; color: #888; background-color: #f0f2f5; padding: 2px 6px; border-radius: 4px;}
-        input[type="range"] { width: 100%; -webkit-appearance: none; appearance: none; height: 8px; background: #ddd; border-radius: 5px; outline: none; transition: opacity .2s; margin: 0;}
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; background: #007bff; cursor: pointer; border-radius: 50%; }
-        input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: #007bff; cursor: pointer; border-radius: 50%; }
-        #btn-pro-reset { background-color: #6c757d; margin-top: 10px; }
-        #btn-pro-reset:hover { background-color: #5a6268; }
+        input[type="range"] { width: 100%; margin: 0;}
+        #jigsaw-edit-controls { border-top: 2px solid #007bff; margin-top: 20px; padding-top: 15px; }
+        .template-gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; border-top: 1px solid #eee; padding-top: 15px; }
+        .template-thumb { aspect-ratio: 1 / 1; background-color: #f8f9fa; border: 2px solid #dee2e6; cursor: pointer; transition: border-color 0.2s; }
+        .template-thumb:hover, .template-thumb.active { border-color: #007bff; }
     </style>
 </head>
 <body>
-
-    <h1>简易图片处理工具</h1>
-
-    <div class="container">
-        <div class="controls">
-            <div class="control-group"><label for="imageLoader">1. 上传图片</label><input type="file" id="imageLoader" name="imageLoader" accept="image/*"/></div>
-            <button id="btn-undo" disabled>撤销</button>
-
-            <div class="tab-buttons">
-                <button class="tab-button active" data-tab="tab-basic">基本</button>
-                <button class="tab-button" data-tab="tab-pro">专业</button>
-                <button class="tab-button" data-tab="tab-adjust">调整</button>
-                <button class="tab-button" data-tab="tab-filters">滤镜</button>
-            </div>
-
-            <div class="tab-content-container">
-                <div id="tab-basic" class="tab-content active">
-                    <div class="control-group"><label>变换</label><button id="btn-trim" disabled>裁剪透明</button><div style="display: flex; gap: 5px;"><button id="btn-flip" disabled>左右翻转</button><button id="btn-flip-vertical" disabled>上下翻转</button></div></div>
-                    <div class="control-group"><label for="rotateAngle">任意旋转</label><input type="number" id="rotateAngle" placeholder="输入角度, 如: 90, -45" value="0"><button id="btn-rotate" disabled>确认</button></div>
-                    <div class="control-group"><label for="resizeWidth">等比缩放</label><input type="number" id="resizeWidth" placeholder="输入新宽度 (px)" min="1"><button id="btn-resize" disabled>确认</button></div>
-                    <div class="control-group"><label>区域裁剪</label><button id="btn-crop" disabled>裁剪选中区域</button></div>
-                </div>
-
-                <div id="tab-pro" class="tab-content">
-                    <div class="preset-grid">
-                        <button class="preset-btn" data-preset="blackGold" disabled>万物黑金</button>
-                        <button class="preset-btn" data-preset="anime" disabled>动漫风</button>
-                        <button class="preset-btn" data-preset="insWhite" disabled>INS净白</button>
-                    </div>
-                    <div class="pro-control"><div class="label-container"><label for="pro-exposure">曝光</label><span class="slider-value" id="val-pro-exposure">0</span></div><input type="range" id="pro-exposure" min="-100" max="100" value="0"></div>
-                    <div class="pro-control"><div class="label-container"><label for="pro-temperature">色温</label><span class="slider-value" id="val-pro-temperature">0</span></div><input type="range" id="pro-temperature" min="-100" max="100" value="0"></div>
-                    <div class="pro-control"><div class="label-container"><label for="pro-contrast">对比度</label><span class="slider-value" id="val-pro-contrast">0</span></div><input type="range" id="pro-contrast" min="-100" max="100" value="0"></div>
-                    <div class="pro-control"><div class="label-container"><label for="pro-highlights">高光</label><span class="slider-value" id="val-pro-highlights">0</span></div><input type="range" id="pro-highlights" min="-100" max="100" value="0"></div>
-                    <div class="pro-control"><div class="label-container"><label for="pro-shadows">阴影</label><span class="slider-value" id="val-pro-shadows">0</span></div><input type="range" id="pro-shadows" min="-100" max="100" value="0"></div>
-                    <div class="pro-control"><div class="label-container"><label for="pro-vibrance">自然饱和度</label><span class="slider-value" id="val-pro-vibrance">0</span></div><input type="range" id="pro-vibrance" min="-100" max="100" value="0"></div>
-                    <div class="pro-control"><div class="label-container"><label for="pro-saturation">饱和度</label><span class="slider-value" id="val-pro-saturation">0</span></div><input type="range" id="pro-saturation" min="-100" max="100" value="0"></div>
-                    <div class="pro-control"><div class="label-container"><label for="pro-clarity">清晰度</label><span class="slider-value" id="val-pro-clarity">0</span></div><input type="range" id="pro-clarity" min="-100" max="100" value="0"></div>
-                    <button id="btn-pro-reset" disabled>全部重置</button>
-                </div>
-
-                <div id="tab-adjust" class="tab-content">
-                    <div class="control-group"><label for="saturationFactor">饱和度 (0-2)</label><input type="number" id="saturationFactor" value="1.0" min="0" max="2" step="0.1"><button id="btn-saturation" disabled>调整</button></div>
-                    <div class="control-group"><label for="brightnessFactor">亮度 (0-2)</label><input type="number" id="brightnessFactor" value="1.0" min="0" max="2" step="0.1"><button id="btn-brightness" disabled>调整</button></div>
-                    <div class="control-group"><label for="contrastFactor">对比度 (0-2)</label><input type="number" id="contrastFactor" value="1.0" min="0" max="2" step="0.1"><button id="btn-contrast" disabled>调整</button></div>
-                    <div class="control-group"><label for="sharpnessFactor">清晰度 (0-2)</label><input type="number" id="sharpnessFactor" value="1.0" min="0" max="2" step="0.1"><button id="btn-sharpness" disabled>调整</button></div>
-                </div>
-
-                <div id="tab-filters" class="tab-content">
-                    <div class="control-group"><div class="button-grid">
-                        <button id="btn-filter-grayscale" disabled>黑白</button><button id="btn-filter-sepia" disabled>复古</button>
-                        <button id="btn-filter-invert" disabled>反色</button><button id="btn-filter-sharpen" disabled>锐化</button>
-                        <button id="btn-filter-blur" disabled>模糊</button><button id="btn-filter-contour" disabled>轮廓</button>
-                        <button id="btn-filter-edge-enhance" disabled>边缘增强</button><button id="btn-filter-emboss" disabled>浮雕</button>
-                        <button id="btn-filter-detail" disabled>细节</button><button id="btn-filter-smooth" disabled>平滑</button>
-                    </div></div>
-                </div>
-            </div>
-
-            <a id="download" href="#" download="processed-image.png"><button class="download-btn" id="btn-download" disabled>下载处理后的图片</button></a>
-            <div id="loader">正在处理...</div>
+    <h1>图片处理与拼图工具</h1>
+    <div class="main-container">
+        <div class="main-tabs">
+            <button class="main-tab-btn active" data-panel="panel-processor">图片处理</button>
+            <button class="main-tab-btn" data-panel="panel-jigsaw">拼图</button>
         </div>
-
-        <div class="canvas-container"><canvas id="imageCanvas"></canvas><div id="resolution-display">请先上传图片</div></div>
+        <div id="panel-processor" class="tab-panel active">
+             <!-- 内容由 processorScope 动态填充 -->
+        </div>
+        <div id="panel-jigsaw" class="tab-panel">
+            <div class="editor-container">
+                <div class="controls">
+                    <div class="control-group"><label>1. 选择图片数量</label><div id="jigsaw-num-selector" class="button-grid">
+                        <button data-num="2">2</button><button data-num="3">3</button><button data-num="4">4</button><button data-num="5">5</button><button data-num="6">6</button><button data-num="9">9</button>
+                    </div></div>
+                    <div class="control-group"><label>2. 选择模板</label><div id="jigsaw-template-gallery" class="template-gallery"></div></div>
+                    <div id="jigsaw-edit-controls" style="display: none;">
+                         <div class="control-group">
+                            <label>编辑图片</label>
+                            <div class="pro-control"><div class="label-container"><label for="jigsaw-scale">缩放</label><span class="slider-value" id="val-jigsaw-scale">1.0</span></div><input type="range" id="jigsaw-scale" min="0.1" max="5" value="1" step="0.05"></div>
+                            <button id="btn-jigsaw-remove" style="background-color: #dc3545;">移除图片</button>
+                        </div>
+                    </div>
+                    <a id="jigsaw-download" download="jigsaw.png"><button class="download-btn" id="btn-jigsaw-download" disabled>下载拼图</button></a>
+                    <div id="jigsaw-loader">处理中...</div>
+                </div>
+                <div class="canvas-area" id="jigsaw-canvas-container"><div id="jigsaw-resolution-display">请选择模板</div></div>
+            </div>
+        </div>
     </div>
-
     <script>
-        const imageLoader = document.getElementById('imageLoader');
-        const canvas = document.getElementById('imageCanvas');
-        const ctx = canvas.getContext('2d');
-        const downloadLink = document.getElementById('download');
-        const resolutionDisplay = document.getElementById('resolution-display');
-        
-        const actionButtons = ['btn-trim', 'btn-flip', 'btn-flip-vertical', 'btn-rotate', 'btn-saturation', 'btn-brightness', 'btn-contrast', 'btn-sharpness', 'btn-filter-grayscale', 'btn-filter-sepia', 'btn-filter-invert', 'btn-filter-sharpen', 'btn-filter-blur', 'btn-filter-contour', 'btn-filter-edge-enhance', 'btn-filter-emboss', 'btn-filter-detail', 'btn-filter-smooth', 'btn-resize', 'btn-crop', 'btn-download', 'btn-undo', 'btn-pro-reset'];
-        const proSliders = document.querySelectorAll('#tab-pro input[type="range"]');
-        const presetButtons = document.querySelectorAll('.preset-btn');
-
-        let selection = { x: 0, y: 0, width: 0, height: 0, isSelecting: false };
-        let originalImage = null; // Always holds the last state from history
-        let pristineImage = null; // Holds the originally uploaded image, used for Pro adjustments
-        let historyStack = [];
-        const undoButton = document.getElementById('btn-undo');
-
-        const presets = {
-            blackGold: {
-                exposure: -10, contrast: 20, saturation: -40, vibrance: 20, temperature: 15, shadows: 10,
-                hsl: { yellow: { h: -10, s: 50, l: 5 }, blue: { h: 0, s: -80, l: -30 }, red: { s: -20 }, green: {s: -50} }
-            },
-            anime: {
-                exposure: 5, contrast: 15, saturation: 25, vibrance: 15, clarity: 20, highlights: -10, shadows: 10,
-                hsl: { cyan: { h: -5, s: 10, l: 0 }, blue: { h: -5, s: 15, l: 5 } }
-            },
-            insWhite: {
-                exposure: 15, contrast: -15, saturation: -30, highlights: 10, shadows: 25, temperature: -10, clarity: 5,
-            }
-        };
-
-        function debounce(func, delay) { let timeout; return function(...args) { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), delay); }; }
-
-        function updateHistory(newImageSrc, fromProAdjust = false, presetName = null) {
-            const lastState = historyStack.length > 0 ? historyStack[historyStack.length - 1] : null;
-            const newState = { src: newImageSrc, pro: fromProAdjust, preset: presetName ? presets[presetName] : null };
-            if (fromProAdjust && lastState?.pro) {
-                historyStack[historyStack.length - 1] = newState;
-            } else {
-                historyStack.push(newState);
-            }
-            undoButton.disabled = historyStack.length <= 1;
-        }
-
-        imageLoader.addEventListener('change', e => {
-            const reader = new FileReader();
-            reader.onload = event => {
-                pristineImage = new Image();
-                pristineImage.onload = () => {
-                    // Auto-resize logic
-                    const MAX_DIMENSION = 1920;
-                    let w = pristineImage.width;
-                    let h = pristineImage.height;
-                    if (w > MAX_DIMENSION || h > MAX_DIMENSION) {
-                        if (w > h) {
-                            h = Math.round(h * (MAX_DIMENSION / w));
-                            w = MAX_DIMENSION;
-                        } else {
-                            w = Math.round(w * (MAX_DIMENSION / h));
-                            h = MAX_DIMENSION;
-                        }
-                        const tempCanvas = document.createElement('canvas');
-                        tempCanvas.width = w;
-                        tempCanvas.height = h;
-                        const tempCtx = tempCanvas.getContext('2d');
-                        tempCtx.drawImage(pristineImage, 0, 0, w, h);
-                        pristineImage.src = tempCanvas.toDataURL('image/png');
-                        // We need to wait for the resized image to load before proceeding
-                        pristineImage.onload = () => {
-                            initImageState();
-                        }
-                    } else {
-                       initImageState();
-                    }
-                }
-                pristineImage.src = event.target.result;
-            }
-            reader.readAsDataURL(e.target.files[0]);
-        });
-        
-        function initImageState() {
-             historyStack = [];
-            resetProSliders(false);
-            updateHistory(pristineImage.src);
-            drawImageOnCanvas(pristineImage.src);
-            enableButtons(true);
-        }
-
-        undoButton.addEventListener('click', () => {
-            if (historyStack.length <= 1) return;
-            showLoader(true);
-            historyStack.pop();
-            const prevState = historyStack[historyStack.length - 1];
-            drawImageOnCanvas(prevState.src, () => {
-                undoButton.disabled = historyStack.length <= 1;
-                showLoader(false);
-            });
-        });
-        
-        function applyPreset(presetName) {
-            const preset = presets[presetName];
-            if (!preset) return;
-            resetProSliders(false); 
-            for (const key in preset) {
-                if (key === 'hsl') continue;
-                const slider = document.getElementById(`pro-${key}`);
-                if (slider) {
-                    slider.value = preset[key];
-                    document.getElementById(`val-pro-${key}`).textContent = preset[key];
-                }
-            }
-            handleProAdjust(false, presetName);
-        }
-
-        presetButtons.forEach(btn => btn.addEventListener('click', () => applyPreset(btn.dataset.preset)));
-
-        const handleProAdjust = async (isReset = false, presetName = null) => {
-            if (!pristineImage) return;
-            let adjustments = {};
-            let isPristine = true;
-            
-            proSliders.forEach(slider => {
-                const value = parseFloat(slider.value);
-                const key = slider.id.replace('pro-', '');
-                adjustments[key] = value;
-                if (value !== 0) isPristine = false;
-            });
-            
-            if (presetName && presets[presetName]) {
-                 adjustments = { ...adjustments, ...presets[presetName] };
-                 isPristine = false;
-            } else if (!isPristine) {
-                const lastState = historyStack[historyStack.length-1];
-                if(lastState?.pro && lastState.preset?.hsl) {
-                    adjustments.hsl = lastState.preset.hsl;
-                }
-            }
-
-            if (isReset) {
-                adjustments = { hsl: {} }; // Send empty adjustments to revert
-                isPristine = true;
-            }
-
-            if (isPristine) {
-                 drawImageOnCanvas(pristineImage.src, () => updateHistory(pristineImage.src, true, null));
-                return;
-            }
-
-            const body = { adjustments };
-            await callApi('/api/pro_adjust', body, pristineImage.src, true, presetName);
-        };
-
-        const debouncedProAdjust = debounce(handleProAdjust, 250);
-
-        proSliders.forEach(slider => {
-            slider.addEventListener('input', () => {
-                document.getElementById(`val-${slider.id}`).textContent = slider.value;
-                debouncedProAdjust();
+    document.addEventListener('DOMContentLoaded', () => {
+        const mainTabBtns = document.querySelectorAll('.main-tab-btn');
+        const mainTabPanels = document.querySelectorAll('.tab-panel');
+        mainTabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                mainTabBtns.forEach(b => b.classList.remove('active'));
+                mainTabPanels.forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(btn.dataset.panel).classList.add('active');
             });
         });
 
-        function resetProSliders(applyEffect = true) {
-            proSliders.forEach(slider => {
-                slider.value = 0;
-                document.getElementById(`val-${slider.id}`).textContent = '0';
-            });
-            if (applyEffect) handleProAdjust(true);
-        }
-
-        document.getElementById('btn-pro-reset').addEventListener('click', () => resetProSliders(true));
-
-        document.querySelectorAll('#tab-filters button').forEach(button => button.addEventListener('click', () => callApi(`/api/filter/${button.id.replace('btn-filter-', '')}`)));
-        document.getElementById('btn-trim').addEventListener('click', () => callApi('/api/trim'));
-        document.getElementById('btn-flip').addEventListener('click', () => callApi('/api/flip'));
-        document.getElementById('btn-flip-vertical').addEventListener('click', () => callApi('/api/flip_vertical'));
-        document.getElementById('btn-rotate').addEventListener('click', () => { const angle = document.getElementById('rotateAngle').value; if (angle === null || angle === '') { alert('Angle required.'); return; } callApi('/api/rotate', { angle: parseFloat(angle) }); });
-        document.getElementById('btn-resize').addEventListener('click', () => { const width = document.getElementById('resizeWidth').value; if (!width || width <= 0) { alert('Width required.'); return; } callApi('/api/resize', { width }); });
-        document.getElementById('btn-crop').addEventListener('click', () => { if (selection.width === 0 || selection.height === 0) { alert('Crop area required.'); return; } const params = { x: Math.round(Math.min(selection.x, selection.x + selection.width)), y: Math.round(Math.min(selection.y, selection.y + selection.height)), width: Math.round(Math.abs(selection.width)), height: Math.round(Math.abs(selection.height)) }; if (params.width === 0 || params.height === 0) { alert('Crop area cannot be zero.'); return; } callApi('/api/crop', params); selection = { x: 0, y: 0, width: 0, height: 0, isSelecting: false }; });
-        document.querySelectorAll('#tab-adjust button').forEach(button => button.addEventListener('click', () => { const name = button.id.replace('btn-', ''); const factor = document.getElementById(`${name}Factor`).value; if (factor === null || factor === '' || parseFloat(factor) < 0) { alert('Factor required.'); return; } callApi(`/api/adjust/${name}`, { factor: parseFloat(factor) }); }));
+        const processorPanel = document.getElementById('panel-processor');
+        processorPanel.innerHTML = `<div class="editor-container">
+                <div class="controls">
+                    <div class="control-group"><label for="imageLoader">1. 上传图片</label><input type="file" id="imageLoader" accept="image/*"/></div>
+                    <button id="btn-undo" disabled>撤销</button>
+                    <div class="sub-tab-buttons">
+                        <button class="sub-tab-btn active" data-subtab="tab-basic">基本</button>
+                        <button class="sub-tab-btn" data-subtab="tab-pro">专业</button>
+                        <button class="sub-tab-btn" data-subtab="tab-adjust">调整(旧)</button>
+                        <button class="sub-tab-btn" data-subtab="tab-filters">滤镜</button>
+                    </div>
+                    <div id="processor-controls">
+                        <div id="tab-basic" class="sub-tab-content active">
+                            <div class="control-group"><label>变换</label><button id="btn-trim" disabled>裁剪透明</button><div style="display: flex; gap: 5px;"><button id="btn-flip" disabled>左右翻转</button><button id="btn-flip-vertical" disabled>上下翻转</button></div></div>
+                            <div class="control-group"><label>任意旋转</label><input type="number" id="rotateAngle" placeholder="输入角度" value="0"><button id="btn-rotate" disabled>确认</button></div>
+                            <div class="control-group"><label>等比缩放</label><input type="number" id="resizeWidth" placeholder="输入新宽度(px)" min="1"><button id="btn-resize" disabled>确认</button></div>
+                            <div class="control-group"><label>区域裁剪</label><button id="btn-crop" disabled>裁剪选中区域</button></div>
+                        </div>
+                        <div id="tab-pro" class="sub-tab-content">
+                            <div class="preset-grid"><button class="preset-btn" data-preset="blackGold" disabled>万物黑金</button><button class="preset-btn" data-preset="anime" disabled>动漫风</button><button class="preset-btn" data-preset="insWhite" disabled>INS净白</button></div>
+                            <div class="pro-control"><div class="label-container"><label for="pro-exposure">曝光</label><span class="slider-value" id="val-pro-exposure">0</span></div><input type="range" id="pro-exposure" min="-100" max="100" value="0"></div>
+                            <div class="pro-control"><div class="label-container"><label for="pro-temperature">色温</label><span class="slider-value" id="val-pro-temperature">0</span></div><input type="range" id="pro-temperature" min="-100" max="100" value="0"></div>
+                            <div class="pro-control"><div class="label-container"><label for="pro-contrast">对比度</label><span class="slider-value" id="val-pro-contrast">0</span></div><input type="range" id="pro-contrast" min="-100" max="100" value="0"></div>
+                            <div class="pro-control"><div class="label-container"><label for="pro-highlights">高光</label><span class="slider-value" id="val-pro-highlights">0</span></div><input type="range" id="pro-highlights" min="-100" max="100" value="0"></div>
+                            <div class="pro-control"><div class="label-container"><label for="pro-shadows">阴影</label><span class="slider-value" id="val-pro-shadows">0</span></div><input type="range" id="pro-shadows" min="-100" max="100" value="0"></div>
+                            <div class="pro-control"><div class="label-container"><label for="pro-vibrance">自然饱和度</label><span class="slider-value" id="val-pro-vibrance">0</span></div><input type="range" id="pro-vibrance" min="-100" max="100" value="0"></div>
+                            <div class="pro-control"><div class="label-container"><label for="pro-saturation">饱和度</label><span class="slider-value" id="val-pro-saturation">0</span></div><input type="range" id="pro-saturation" min="-100" max="100" value="0"></div>
+                            <div class="pro-control"><div class="label-container"><label for="pro-clarity">清晰度</label><span class="slider-value" id="val-pro-clarity">0</span></div><input type="range" id="pro-clarity" min="-100" max="100" value="0"></div>
+                            <button id="btn-pro-reset" disabled>全部重置</button>
+                        </div>
+                        <div id="tab-adjust" class="sub-tab-content">
+                            <div class="control-group"><label>饱和度 (0-2)</label><input type="number" id="saturationFactor" value="1.0" min="0" max="2" step="0.1"><button id="btn-saturation" disabled>调整</button></div>
+                            <div class="control-group"><label>亮度 (0-2)</label><input type="number" id="brightnessFactor" value="1.0" min="0" max="2" step="0.1"><button id="btn-brightness" disabled>调整</button></div>
+                            <div class="control-group"><label>对比度 (0-2)</label><input type="number" id="contrastFactor" value="1.0" min="0" max="2" step="0.1"><button id="btn-contrast" disabled>调整</button></div>
+                            <div class="control-group"><label>清晰度 (0-2)</label><input type="number" id="sharpnessFactor" value="1.0" min="0" max="2" step="0.1"><button id="btn-sharpness" disabled>调整</button></div>
+                        </div>
+                        <div id="tab-filters" class="sub-tab-content">
+                            <div class="button-grid">
+                                <button id="btn-filter-grayscale" disabled>黑白</button><button id="btn-filter-sepia" disabled>复古</button>
+                                <button id="btn-filter-invert" disabled>反色</button><button id="btn-filter-sharpen" disabled>锐化</button>
+                                <button id="btn-filter-blur" disabled>模糊</button><button id="btn-filter-contour" disabled>轮廓</button>
+                                <button id="btn-filter-edge-enhance" disabled>边缘增强</button><button id="btn-filter-emboss" disabled>浮雕</button>
+                                <button id="btn-filter-detail" disabled>细节</button><button id="btn-filter-smooth" disabled>平滑</button>
+                            </div>
+                        </div>
+                    </div>
+                    <a id="download" href="#" download="processed-image.png"><button class="download-btn" id="btn-download" disabled>下载图片</button></a>
+                    <div id="loader">处理中...</div>
+                </div>
+                <div class="canvas-area"><canvas id="imageCanvas"></canvas><div id="resolution-display">请上传图片</div></div>
+            </div>`;
         
-        canvas.addEventListener('mousedown', e => { selection.isSelecting = true; const rect = canvas.getBoundingClientRect(); selection.x = e.offsetX * (canvas.width / rect.width); selection.y = e.offsetY * (canvas.height / rect.height); });
-        canvas.addEventListener('mousemove', e => { if (selection.isSelecting) { drawImageOnCanvas(originalImage.src); const rect = canvas.getBoundingClientRect(); const currentX = e.offsetX * (canvas.width / rect.width); const currentY = e.offsetY * (canvas.height / rect.height); selection.width = currentX - selection.x; selection.height = currentY - selection.y; ctx.strokeStyle = 'red'; ctx.lineWidth = 2; ctx.strokeRect(selection.x, selection.y, selection.width, selection.height); } });
-        canvas.addEventListener('mouseup', () => { selection.isSelecting = false; });
-
-        function drawImageOnCanvas(src, callback) {
-            const img = new Image();
-            img.onload = () => {
-                originalImage = img;
-                canvas.width = img.width; canvas.height = img.height;
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, 0, 0);
-                updateDownloadLink(src);
-                resolutionDisplay.textContent = `Resolution: ${img.width}x${img.height}`;
-                if (callback) callback();
-            };
-            img.src = src;
-        }
-
-        function enableButtons(enabled) {
-            actionButtons.forEach(id => { const button = document.getElementById(id); if (button) button.disabled = !enabled; });
-            proSliders.forEach(slider => slider.disabled = !enabled);
-            presetButtons.forEach(btn => btn.disabled = !enabled);
-        }
-        
-        function showLoader(show) { document.getElementById('loader').style.display = show ? 'block' : 'none'; }
-        function updateDownloadLink(dataUrl) { downloadLink.href = dataUrl; }
-
-        async function callApi(endpoint, body = {}, imageSrc = null, fromPro = false, presetName = null) {
-            showLoader(true);
+        const processorScope = () => {
+             const imageLoader = document.getElementById('imageLoader'), canvas = document.getElementById('imageCanvas'), ctx = canvas.getContext('2d'), downloadLink = document.getElementById('download'), resolutionDisplay = document.getElementById('resolution-display'), actionButtons = ['btn-trim', 'btn-flip', 'btn-flip-vertical', 'btn-rotate', 'btn-saturation', 'btn-brightness', 'btn-contrast', 'btn-sharpness', 'btn-filter-grayscale', 'btn-filter-sepia', 'btn-filter-invert', 'btn-filter-sharpen', 'btn-filter-blur', 'btn-filter-contour', 'btn-filter-edge-enhance', 'btn-filter-emboss', 'btn-filter-detail', 'btn-filter-smooth', 'btn-resize', 'btn-crop', 'btn-download', 'btn-undo', 'btn-pro-reset'], proSliders = document.querySelectorAll('#tab-pro input[type="range"]'), presetButtons = document.querySelectorAll('.preset-btn'), subTabBtns = document.querySelectorAll('#panel-processor .sub-tab-btn'), subTabContents = document.querySelectorAll('#processor-controls .sub-tab-content');
+            let selection = { x: 0, y: 0, width: 0, height: 0, isSelecting: false }, originalImage = null, pristineImage = null, historyStack = [], undoButton = document.getElementById('btn-undo');
+            const presets = { blackGold: { exposure: -10, contrast: 20, saturation: -40, vibrance: 20, temperature: 15, shadows: 10, hsl: { yellow: { h: -10, s: 50, l: 5 }, blue: { h: 0, s: -80, l: -30 }, red: { s: -20 }, green: {s: -50 } } }, anime: { exposure: 5, contrast: 15, saturation: 25, vibrance: 15, clarity: 20, highlights: -10, shadows: 10, hsl: { cyan: { h: -5, s: 10, l: 0 }, blue: { h: -5, s: 15, l: 5 } } }, insWhite: { exposure: 15, contrast: -15, saturation: -30, highlights: 10, shadows: 25, temperature: -10, clarity: 5 } };
+            function debounce(func, delay) { let timeout; return function(...args) { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), delay); }; }
+            function updateHistory(newImageSrc, fromProAdjust = false, presetName = null) { const lastState = historyStack.length > 0 ? historyStack[historyStack.length - 1] : null; const newState = { src: newImageSrc, pro: fromProAdjust, preset: presetName ? presets[presetName] : null }; if (fromProAdjust && lastState?.pro) { historyStack[historyStack.length - 1] = newState; } else { historyStack.push(newState); } undoButton.disabled = historyStack.length <= 1; }
+            imageLoader.addEventListener('change', e => { const reader = new FileReader(); reader.onload = event => { pristineImage = new Image(); pristineImage.onload = () => { const MAX_DIMENSION = 1920; let w = pristineImage.width, h = pristineImage.height; if (w > MAX_DIMENSION || h > MAX_DIMENSION) { if (w > h) { h = Math.round(h * (MAX_DIMENSION / w)); w = MAX_DIMENSION; } else { w = Math.round(w * (MAX_DIMENSION / h)); h = MAX_DIMENSION; } const tempCanvas = document.createElement('canvas'); tempCanvas.width = w; tempCanvas.height = h; tempCanvas.getContext('2d').drawImage(pristineImage, 0, 0, w, h); pristineImage.src = tempCanvas.toDataURL('image/png'); pristineImage.onload = initImageState; } else { initImageState(); } }; pristineImage.src = event.target.result; }; reader.readAsDataURL(e.target.files[0]); });
+            function initImageState() { historyStack = []; resetProSliders(false); updateHistory(pristineImage.src); drawImageOnCanvas(pristineImage.src); enableButtons(true); }
+            undoButton.addEventListener('click', () => { if (historyStack.length <= 1) return; showLoader(true); historyStack.pop(); const prevState = historyStack[historyStack.length - 1]; drawImageOnCanvas(prevState.src, () => { undoButton.disabled = historyStack.length <= 1; showLoader(false); }); });
+            function applyPreset(presetName) { const preset = presets[presetName]; if (!preset) return; resetProSliders(false); for (const key in preset) { if (key === 'hsl') continue; const slider = document.getElementById(`pro-${key}`); if (slider) { slider.value = preset[key]; document.getElementById(`val-pro-${key}`).textContent = preset[key]; } } handleProAdjust(false, presetName); }
+            presetButtons.forEach(btn => btn.addEventListener('click', () => applyPreset(btn.dataset.preset)));
+            const handleProAdjust = async (isReset = false, presetName = null) => { if (!pristineImage) return; let adjustments = {}, isPristine = true; proSliders.forEach(slider => { const value = parseFloat(slider.value), key = slider.id.replace('pro-', ''); adjustments[key] = value; if (value !== 0) isPristine = false; }); const activePreset = presetName ? presets[presetName] : (historyStack.length > 0 && historyStack[historyStack.length - 1]?.pro ? historyStack[historyStack.length - 1].preset : null); if (activePreset && activePreset.hsl) { adjustments.hsl = activePreset.hsl; } if (isReset) { adjustments = {}; isPristine = true; } if (isPristine && !presetName) { drawImageOnCanvas(pristineImage.src, () => updateHistory(pristineImage.src, true, null)); return; } const body = { adjustments }; await callApi('/api/pro_adjust', body, pristineImage.src, true, presetName); };
+            const debouncedProAdjust = debounce(handleProAdjust, 250);
+            proSliders.forEach(slider => { slider.addEventListener('input', () => { document.getElementById(`val-${slider.id}`).textContent = slider.value; debouncedProAdjust(); }); });
+            function resetProSliders(applyEffect = true) { proSliders.forEach(slider => { slider.value = 0; document.getElementById(`val-${slider.id}`).textContent = '0'; }); if (applyEffect) handleProAdjust(true); }
+            document.getElementById('btn-pro-reset').addEventListener('click', () => resetProSliders(true));
+            document.querySelectorAll('#tab-filters button').forEach(button => button.addEventListener('click', () => callApi(`/api/filter/${button.id.replace('btn-filter-', '')}`)));
+            document.querySelectorAll('#tab-adjust button').forEach(button => button.addEventListener('click', () => { const name = button.id.replace('btn-', ''), factor = document.getElementById(`${name}Factor`).value; if (!factor || parseFloat(factor) < 0) { alert('Factor required.'); return; } callApi(`/api/adjust/${name}`, { factor: parseFloat(factor) }); }));
+            document.getElementById('btn-trim').addEventListener('click', () => callApi('/api/trim')); document.getElementById('btn-flip').addEventListener('click', () => callApi('/api/flip')); document.getElementById('btn-flip-vertical').addEventListener('click', () => callApi('/api/flip_vertical'));
+            document.getElementById('btn-rotate').addEventListener('click', () => { const angle = document.getElementById('rotateAngle').value; if (angle === null || angle === '') { alert('Angle required.'); return; } callApi('/api/rotate', { angle: parseFloat(angle) }); });
+            document.getElementById('btn-resize').addEventListener('click', () => { const width = document.getElementById('resizeWidth').value; if (!width || width <= 0) { alert('Width required.'); return; } callApi('/api/resize', { width }); });
+            document.getElementById('btn-crop').addEventListener('click', () => { if (selection.width === 0 || selection.height === 0) { alert('Crop area required.'); return; } const params = { x: Math.round(Math.min(selection.x, selection.x + selection.width)), y: Math.round(Math.min(selection.y, selection.y + selection.height)), width: Math.round(Math.abs(selection.width)), height: Math.round(Math.abs(selection.height)) }; if (params.width === 0 || params.height === 0) { alert('Crop area cannot be zero.'); return; } callApi('/api/crop', params); selection = { x: 0, y: 0, width: 0, height: 0, isSelecting: false }; });
+            canvas.addEventListener('mousedown', e => { selection.isSelecting = true; const rect = canvas.getBoundingClientRect(); selection.x = e.offsetX * (canvas.width / rect.width); selection.y = e.offsetY * (canvas.height / rect.height); });
+            canvas.addEventListener('mousemove', e => { if (selection.isSelecting) { drawImageOnCanvas(originalImage.src); const rect = canvas.getBoundingClientRect(); const currentX = e.offsetX * (canvas.width / rect.width); const currentY = e.offsetY * (canvas.height / rect.height); selection.width = currentX - selection.x; selection.height = currentY - selection.y; ctx.strokeStyle = 'red'; ctx.lineWidth = 2; ctx.strokeRect(selection.x, selection.y, selection.width, selection.height); } });
+            canvas.addEventListener('mouseup', () => { selection.isSelecting = false; });
+            function drawImageOnCanvas(src, callback) { const img = new Image(); img.onload = () => { originalImage = img; canvas.width = img.width; canvas.height = img.height; ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(img, 0, 0); updateDownloadLink(src); resolutionDisplay.textContent = `Resolution: ${img.width}x${img.height}`; if (callback) callback(); }; img.src = src; }
+            function enableButtons(enabled) { actionButtons.forEach(id => { const button = document.getElementById(id); if (button) button.disabled = !enabled; }); proSliders.forEach(slider => slider.disabled = !enabled); presetButtons.forEach(btn => btn.disabled = !enabled); }
+            function showLoader(show) { document.getElementById('loader').style.display = show ? 'block' : 'none'; }
+            function updateDownloadLink(dataUrl) { downloadLink.href = dataUrl; }
+            async function callApi(endpoint, body = {}, imageSrc = null, fromPro = false, presetName = null) { showLoader(true); enableButtons(false); try { const src = imageSrc || (originalImage ? originalImage.src : null); if (!src) throw new Error("No image loaded."); const payload = { ...body, imageData: src }; const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!response.ok) { const error = await response.json(); throw new Error(error.error || `Request failed: ${response.status}`); } const result = await response.json(); drawImageOnCanvas(result.imageUrl, () => { showLoader(false); enableButtons(true); updateHistory(result.imageUrl, fromPro, presetName); }); } catch (error) { alert(`Error: ${error.message}`); showLoader(false); enableButtons(true); } }
+            subTabBtns.forEach(button => button.addEventListener('click', () => { subTabBtns.forEach(btn => btn.classList.remove('active')); subTabContents.forEach(content => content.classList.remove('active')); button.classList.add('active'); document.getElementById(button.dataset.subtab).classList.add('active'); }));
             enableButtons(false);
-            try {
-                const src = imageSrc || (originalImage ? originalImage.src : null);
-                if (!src) throw new Error("No image loaded.");
-                const payload = { ...body, imageData: src };
-                const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if (!response.ok) { const error = await response.json(); throw new Error(error.error || `Request failed: ${response.status}`); }
-                const result = await response.json();
-                drawImageOnCanvas(result.imageUrl, () => {
-                    showLoader(false);
-                    enableButtons(true);
-                    updateHistory(result.imageUrl, fromPro, presetName);
-                });
-            } catch (error) {
-                alert(`Error: ${error.message}`);
-                showLoader(false);
-                enableButtons(true);
-            }
-        }
-
-        const tabButtons = document.querySelectorAll('.tab-button');
-        const tabContents = document.querySelectorAll('.tab-content');
-        tabButtons.forEach(button => button.addEventListener('click', () => {
-            tabButtons.forEach(btn => btn.classList.remove('active'));
-            tabContents.forEach(content => content.classList.remove('active'));
-            button.classList.add('active');
-            document.getElementById(button.dataset.tab).classList.add('active');
-        }));
+        };
         
-        enableButtons(false);
+        const jigsawScope = () => {
+            const numSelector = document.getElementById('jigsaw-num-selector'), gallery = document.getElementById('jigsaw-template-gallery'), downloadBtn = document.getElementById('btn-jigsaw-download'), resDisplay = document.getElementById('jigsaw-resolution-display'), container = document.getElementById('jigsaw-canvas-container'), editControls = document.getElementById('jigsaw-edit-controls'), scaleSlider = document.getElementById('jigsaw-scale'), scaleValue = document.getElementById('val-jigsaw-scale'), removeBtn = document.getElementById('btn-jigsaw-remove');
+            let stage, activeShape;
+            const templates = {
+                2: [{id:"2-v",rects:[{x:0,y:0,w:1,h:0.5},{x:0,y:0.5,w:1,h:0.5}]},{id:"2-h",rects:[{x:0,y:0,w:0.5,h:1},{x:0.5,y:0,w:0.5,h:1}]}],
+                3: [{id:"3-v",rects:[{x:0,y:0,w:1,h:1/3},{x:0,y:1/3,w:1,h:1/3},{x:0,y:2/3,w:1,h:1/3}]},{id:"3-h",rects:[{x:0,y:0,w:1/3,h:1},{x:1/3,y:0,w:1/3,h:1},{x:2/3,y:0,w:1/3,h:1}]},{id:"3-tri",rects:[{x:0,y:0,w:1,h:0.5},{x:0,y:0.5,w:0.5,h:0.5},{x:0.5,y:0.5,w:0.5,h:0.5}]}],
+                4: [{id:"4-grid",rects:Array.from({length:4}).map((_,i)=>({x:(i%2)/2,y:Math.floor(i/2)/2,w:0.5,h:0.5}))},{id:"4-v",rects:Array.from({length:4}).map((_,i)=>({x:0,y:i/4,w:1,h:0.25}))},{id:"4-h",rects:Array.from({length:4}).map((_,i)=>({x:i/4,y:0,w:0.25,h:1}))},{id:"4-featured",rects:[{x:0,y:0,w:0.75,h:1},{x:0.75,y:0,w:0.25,h:1/3},{x:0.75,y:1/3,w:0.25,h:1/3},{x:0.75,y:2/3,w:0.25,h:1/3}]}],
+                5: [{id:"5-v-featured",rects:[{x:0,y:0,w:0.5,h:0.5},{x:0.5,y:0,w:0.5,h:0.5},{x:0,y:0.5,w:1/3,h:0.5},{x:1/3,y:0.5,w:1/3,h:0.5},{x:2/3,y:0.5,w:1/3,h:0.5}]}],
+                6: [{id:"6-grid-3x2",rects:Array.from({length:6}).map((_,i)=>({x:(i%3)/3,y:Math.floor(i/3)/2,w:1/3,h:0.5}))}],
+                9: [{id:"9-grid-3x3",rects:Array.from({length:9}).map((_,i)=>({x:(i%3)/3,y:Math.floor(i/3)/3,w:1/3,h:1/3}))}]
+            };
+
+            function initCanvas() { stage = new Konva.Stage({ container: 'jigsaw-canvas-container', width: container.clientWidth, height: container.clientWidth }); resDisplay.textContent = `画布: ${stage.width()}x${stage.height()}`; stage.on('click tap', e => { if (e.target === stage) deselectAll(); }); }
+            function drawTemplate(template) { deselectAll(); stage.destroyChildren(); const layer = new Konva.Layer(); template.rects.forEach((rectDef, index) => { const group = new Konva.Group({ id: `group-${index}`, x: rectDef.x * stage.width(), y: rectDef.y * stage.height(), width: rectDef.w * stage.width(), height: rectDef.h * stage.height(), clip: { x: 0, y: 0, width: rectDef.w * stage.width(), height: rectDef.h * stage.height() } }); const border = new Konva.Rect({ x: 0, y: 0, width: group.width(), height: group.height(), stroke: '#ccc', strokeWidth: 4, name: 'border' }); group.add(border); group.on('click tap', () => handleSlotClick(group)); layer.add(group); }); stage.add(layer); downloadBtn.disabled = false; }
+            function handleSlotClick(group) { const existingImage = group.findOne('.userImage'); if (existingImage) { selectShape(existingImage); } else { const fileInput = document.createElement('input'); fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.onchange = e => { if (!e.target.files[0]) return; const reader = new FileReader(); reader.onload = res => { const img = new Image(); img.onload = () => { const aspectRatio = group.width() / group.height(), imgRatio = img.width / img.height; let newWidth, newHeight, x, y; if (imgRatio > aspectRatio) { newHeight = group.height(); newWidth = newHeight * imgRatio; } else { newWidth = group.width(); newHeight = newWidth / imgRatio; } x = (group.width() - newWidth) / 2; y = (group.height() - newHeight) / 2; const konvaImg = new Konva.Image({ image: img, x, y, width: newWidth, height: newHeight, draggable: true, name: 'userImage' }); konvaImg.dragBoundFunc(pos => getDragBounds(konvaImg, group, pos)); group.add(konvaImg); selectShape(konvaImg); }; img.src = res.target.result; }; reader.readAsDataURL(e.target.files[0]); }; fileInput.click(); } }
+            function getDragBounds(img, group, pos) { let x = pos.x, y = pos.y; const scale = img.scaleX(); if (pos.x > 0) x = 0; if (pos.y > 0) y = 0; if (pos.x + img.width() * scale < group.width()) x = group.width() - img.width() * scale; if (pos.y + img.height() * scale < group.height()) y = group.height() - img.height() * scale; return { x, y }; }
+            function selectShape(img) { deselectAll(); activeShape = img; const group = img.getParent(); group.findOne('.border').stroke('#007bff').strokeWidth(6); editControls.style.display = 'block'; scaleSlider.value = img.scaleX(); scaleValue.textContent = img.scaleX().toFixed(2); }
+            function deselectAll() { stage.find('.border').forEach(border => border.stroke('#ccc').strokeWidth(4)); editControls.style.display = 'none'; activeShape = null; }
+            scaleSlider.addEventListener('input', e => { if (!activeShape) return; const scale = parseFloat(e.target.value); const group = activeShape.getParent(); const oldScale = activeShape.scaleX(); const center = { x: group.width()/2, y: group.height()/2 }; const related = { x: (center.x - activeShape.x()) / oldScale, y: (center.y - activeShape.y()) / oldScale }; const newPos = { x: center.x - related.x * scale, y: center.y - related.y * scale }; activeShape.scale({ x: scale, y: scale }); activeShape.position(getDragBounds(activeShape, group, newPos)); scaleValue.textContent = scale.toFixed(2); stage.batchDraw(); });
+            removeBtn.addEventListener('click', () => { if (activeShape) { activeShape.destroy(); deselectAll(); } });
+            function renderTemplates(num) { gallery.innerHTML = ''; if (!templates[num]) return; templates[num].forEach(template => { const thumb = document.createElement('div'); thumb.className = 'template-thumb'; thumb.onclick = () => { document.querySelectorAll('.template-thumb').forEach(t => t.classList.remove('active')); thumb.classList.add('active'); drawTemplate(template); }; gallery.appendChild(thumb); }); }
+            numSelector.addEventListener('click', e => { if (e.target.tagName === 'BUTTON') { document.querySelectorAll('#jigsaw-num-selector button').forEach(b => b.style.backgroundColor = ''); e.target.style.backgroundColor = '#007bff'; renderTemplates(e.target.dataset.num); } });
+            downloadBtn.addEventListener('click', (e) => { deselectAll(); stage.batchDraw(); setTimeout(() => { e.target.parentElement.href = stage.toDataURL({ pixelRatio: 2 }); }, 100); });
+            initCanvas();
+            processorScope();
+            document.querySelector('#jigsaw-num-selector button[data-num="2"]').click();
+        };
+        jigsawScope();
+    });
     </script>
 </body>
 </html>

@@ -50,6 +50,8 @@ if [ "$1" == "log" ]; then
     start_foreground
 elif [ "$1" == "restart" ]; then
     start_background
+elif [ "$1" == "stop" ]; then
+    stop_server
 else
     # 默认行为（无参数）也是重启并在后台运行
     start_background
